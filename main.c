@@ -273,10 +273,10 @@ display_string sub_display_en(void) {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
 
-    const char *m = mois[t->tm_mon];
+    const char *m = months[t->tm_mon];
     int lenm = (int) strlen(m);
     int spacesm = (9 - lenm + 1) / 2;
-    const char *j = jours[t->tm_wday];
+    const char *j = days[t->tm_wday];
     int lenj = (int) strlen(j);
     int spacesj = (9 - lenj + 1) / 2;
 
