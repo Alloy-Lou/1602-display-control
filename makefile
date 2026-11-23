@@ -1,9 +1,9 @@
 CC      := gcc
-CFLAGS  := -std=gnu23 -Wall -Wextra -Werror -O2
+CFLAGS  := -std=gnu23 -Wall -Wextra -Werror -O2 -Isrc -Imodule
 TARGET  := lcd
-SRCS    := $(wildcard *.c)
+SRCS    := $(wildcard *.c src/*.c module/*.c)
 OBJS    := $(SRCS:.c=.o)
-HDRS    := $(wildcard *.h)
+HDRS    := $(wildcard *.h src/*.h module/*.h)
 PREFIX  := /usr/local/bin
 SERVICE := /etc/systemd/system/$(TARGET).service
 
