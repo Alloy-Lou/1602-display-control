@@ -34,36 +34,25 @@ typedef struct {
 // -----
 
 /**
- * Registers the primary display rotation and automatically appends { NULL, 0 }.
+ * Registers the primary display rotation. Order of calls matters
+ * Returns 0 on success, -1 on error.
  *
  * Example:
- * @code
- * REGISTER_MAIN_SCHEDULE(
- *     { main_display, 7 },
- *     { sub_display,  3 }
- * );
- * @endcode
+ * register_main_screen(main_display,   7);
+ * register_main_screen(sub_display_fr, 3);
+ * -> will register on a 10 sec rotation "main_display" for 7s, then "sub_display_fr" for 3s
 **/
-#define REGISTER_MAIN_SCHEDULE(...)                                                     \
-    static main_screen_slot _main_schedule_data[] = { __VA_ARGS__ __VA_OPT__(,) { NULL, 0 } }; \
-    main_screen_slot *main_schedule = _main_schedule_data
+int register_main_screen(display_string (*render)(void), int duration_sec);
 
 /**
- * Registers hourly side displays and automatically appends { NULL, 0, -1 }.
+ * Registers hourly side displays
+ * Returns 0 on success, -1 on error.
  *
  * Example:
- * @code
- * REGISTER_SIDE_SCHEDULE(
- *     { weather_display, 4, -1 },
- *     { quote_of_the_day_display,   2, -1 }
- * );
- * @endcode
+ * register_side_screen(test_side_display, 6);
+ * -> will register test_side_display 6 times an hour, so every 10 minutes
 **/
-#define REGISTER_SIDE_SCHEDULE(...)                                                         \
-    static side_screen_slot _side_schedule_data[] = { __VA_ARGS__ __VA_OPT__(,) { NULL, 0, -1 } }; \
-    side_screen_slot *side_schedule = _side_schedule_data
-
-// -----
+int register_side_screen(display_string (*render)(int *done), int times_per_hour);
 
 /** Returns the current CPU package temperature in degrees Celsius. Rounded one digit after the comma (ex: 42.5) */
 float get_cpu_temp(void);
@@ -96,10 +85,13 @@ display_string sub_display_fr(void);
  */
 display_string test_side_display(int *done);
 
-/* Schedules defined externally in screens.c */
-extern main_screen_slot main_schedule[];
-extern side_screen_slot side_schedule[];
-
 // -----
+
+/**
+ * Register all your main and side displays here, 
+ * using register_main_screen() and register_side_screen()
+ * 
+**/
+void setup_screens(void);
 
 #endif
