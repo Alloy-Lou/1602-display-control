@@ -51,14 +51,28 @@ const uint8_t degree_celcius[8] = {
     0b00111  // ░░░░██████
 };
 
+/* 
+** Note: const char* const thing[] to make things truly const. 
+** Only characters are const here, but strings slots are writable. 
+** Whatever ┐(￣ヘ￣)┌ edit them if u want lol
+*/
 const char* jours[] = {
     "Dimanche", "Lundi", "Mardi", "Mercredi",
     "Jeudi", "Vendredi", "Samedi"
 };
-static const char* mois[] = {
+const char* mois[] = {
     "Janvier", "Février", "Mars", "Avril", "Mai",
     "Juin", "Juillet", "Août", "Septembre",
     "Octobre", "Novembre", "Décembre"
+};
+const char* days[] = {
+    "Sunday", "Monday", "Tuesday", "Wednesday",
+    "Thursday", "Friday", "Saturday"
+};
+const char* const months[] = {
+    "January", "February", "March", "April", "May",
+    "June", "July", "August", "September",
+    "October", "November", "December"
 };
 
 void lcd_send(uint8_t val, uint8_t mode) {
@@ -212,6 +226,47 @@ display_string sub_display_fr(void) {
 
     /* ┌──────────────────┐ **
     ** │    Lundi    06   │ **
+    ** │     Mars   2026  │ **
+    ** └──────────────────┘ */ 
+    display_string display;
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+
+    const char *m = mois[t->tm_mon];
+    int lenm = (int) strlen(m);
+    int spacesm = (9 - lenm + 1) / 2;
+    const char *j = jours[t->tm_wday];
+    int lenj = (int) strlen(j);
+    int spacesj = (9 - lenj + 1) / 2;
+
+    snprintf(
+        display.line1,
+        sizeof(display.line1),
+        " %*s%-*s  %02d  ",
+        spacesj, "",
+        9 - spacesj, j,
+        t->tm_mday
+    );
+    snprintf(
+        display.line2,
+        sizeof(display.line2),
+        " %*s%-*s %4d ",
+        spacesm, "",
+        9 - spacesm, m,
+        t->tm_year + 1900
+    );
+
+    return display;
+}
+
+display_string sub_display_en(void) {
+    /* ┌──────────────────┐ **
+    ** │  Wednesday  26   │ **
+    ** │  September 2026  │ **
+    ** └──────────────────┘ */ 
+
+    /* ┌──────────────────┐ **
+    ** │    Monday   06   │ **
     ** │     Mars   2026  │ **
     ** └──────────────────┘ */ 
     display_string display;

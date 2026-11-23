@@ -78,6 +78,13 @@ display_string main_display(void);
 display_string sub_display_fr(void);
 
 /**
+ * Default sub display layout - English version:
+ * Row 1: Weekday | Month Day  
+ * Row 2: Month | Year
+ */
+display_string sub_display_en(void);
+
+/**
  * Test side display for debug/testing purposes;
  * Displays for 5 seconds:
  * Row 1: 1234567890123456  
