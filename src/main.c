@@ -1,4 +1,4 @@
-// read dontreadme.md for explanation on how the code works
+// read dontreadme.md for explanation on how things works
 
 #include "lcd.h"
 
@@ -15,7 +15,7 @@
 #include <linux/i2c-dev.h>
 
 
-#define I2C_ADDR      0x27  // Screen's I2C address
+#define I2C_ADDR      0x27  // Screen's I2C address (change urs if different :p)
 
 #define LCD_BACKLIGHT 0x08  // 0000 1000
 #define LCD_ENABLE    0x04  // 0000 0100
@@ -34,6 +34,12 @@
 int i2c_fd = -1; // connection ID; -1 = not connected yet
 volatile sig_atomic_t wake_up = 0;
 
+static main_screen_slot *main_schedule = NULL;
+static int main_schedule_count = 0;
+
+static side_screen_slot *side_schedule = NULL;
+static int side_schedule_count = 0;
+
 const uint8_t degree_celcius[8] = {
     0b11000, // ████░░░░░░
     0b11000, // ████░░░░░░
@@ -45,14 +51,28 @@ const uint8_t degree_celcius[8] = {
     0b00111  // ░░░░██████
 };
 
+/* 
+** Note: const char* const thing[] to make things truly const. 
+** Only characters are const here, but strings slots are writable. 
+** Whatever ┐(￣ヘ￣)┌ edit them if u want lol
+*/
 const char* jours[] = {
     "Dimanche", "Lundi", "Mardi", "Mercredi",
     "Jeudi", "Vendredi", "Samedi"
 };
-static const char* mois[] = {
+const char* mois[] = {
     "Janvier", "Février", "Mars", "Avril", "Mai",
     "Juin", "Juillet", "Août", "Septembre",
     "Octobre", "Novembre", "Décembre"
+};
+const char* days[] = {
+    "Sunday", "Monday", "Tuesday", "Wednesday",
+    "Thursday", "Friday", "Saturday"
+};
+const char* const months[] = {
+    "January", "February", "March", "April", "May",
+    "June", "July", "August", "September",
+    "October", "November", "December"
 };
 
 void lcd_send(uint8_t val, uint8_t mode) {
@@ -239,16 +259,80 @@ display_string sub_display_fr(void) {
     return display;
 }
 
-display_string test_side_display(int* done) {
-    static int t = 0;
-    display_string test = {"1234567890123456", "2234567890123456"};
-    if (t > 5) {
-        t = 0;
-        *done = 1;
-    }
+display_string sub_display_en(void) {
+    /* ┌──────────────────┐ **
+    ** │  Wednesday  26   │ **
+    ** │  September 2026  │ **
+    ** └──────────────────┘ */ 
 
-    t++;
-    return test;
+    /* ┌──────────────────┐ **
+    ** │    Monday   06   │ **
+    ** │     Mars   2026  │ **
+    ** └──────────────────┘ */ 
+    display_string display;
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+
+    const char *m = months[t->tm_mon];
+    int lenm = (int) strlen(m);
+    int spacesm = (9 - lenm + 1) / 2;
+    const char *j = days[t->tm_wday];
+    int lenj = (int) strlen(j);
+    int spacesj = (9 - lenj + 1) / 2;
+
+    snprintf(
+        display.line1,
+        sizeof(display.line1),
+        " %*s%-*s  %02d  ",
+        spacesj, "",
+        9 - spacesj, j,
+        t->tm_mday
+    );
+    snprintf(
+        display.line2,
+        sizeof(display.line2),
+        " %*s%-*s %4d ",
+        spacesm, "",
+        9 - spacesm, m,
+        t->tm_year + 1900
+    );
+
+    return display;
+}
+
+int register_main_screen(display_string (*render)(void), int duration_sec) {
+    if (!render || duration_sec <= 0) return -1;
+
+    main_screen_slot *tmp = realloc(
+        main_schedule,
+        (size_t)(main_schedule_count + 1) * sizeof(*main_schedule)
+    );
+    if (!tmp) return -1;
+
+    main_schedule = tmp;
+    main_schedule[main_schedule_count++] = (main_screen_slot){
+        .render = render,
+        .duration_sec = duration_sec
+    };
+    return 0;
+}
+
+int register_side_screen(display_string (*render)(int *done), int times_per_hour) {
+    if (!render || times_per_hour <= 0 || times_per_hour > 3600) return -1;
+
+    side_screen_slot *tmp = realloc(
+        side_schedule,
+        (size_t)(side_schedule_count + 1) * sizeof(*side_schedule)
+    );
+    if (!tmp) return -1;
+
+    side_schedule = tmp;
+    side_schedule[side_schedule_count++] = (side_screen_slot){
+        .render = render,
+        .times_per_hour = times_per_hour,
+        .last_slot = -1
+    };
+    return 0;
 }
 
 void lcd_update(display_string display) {
@@ -285,7 +369,7 @@ display_string run_scheduled_display(void) {
     static int main_cooldown = 0;  // Remaining seconds of forced main rotation
 
     int cycle_len = 0;
-    for (int i = 0; main_schedule[i].render != NULL; i++) {
+    for (int i = 0; i < main_schedule_count; i++) {
         cycle_len += main_schedule[i].duration_sec;
     }
 
@@ -308,7 +392,7 @@ display_string run_scheduled_display(void) {
     if (main_cooldown > 0) {
         main_cooldown--;
     } else {
-        for (int i = 0; side_schedule[i].render != NULL; i++) {
+        for (int i = 0; i < side_schedule_count; i++) {
             if (side_schedule[i].times_per_hour <= 0) continue;
 
             int interval = 3600 / side_schedule[i].times_per_hour;
@@ -344,7 +428,7 @@ display_string run_scheduled_display(void) {
     int pos = t->tm_sec % cycle_len;
     int elapsed = 0;
 
-    for (int i = 0; main_schedule[i].render != NULL; i++) {
+    for (int i = 0; i < main_schedule_count; i++) {
         elapsed += main_schedule[i].duration_sec;
         if (pos < elapsed) {
             return main_schedule[i].render();
@@ -378,6 +462,8 @@ int run_daemon(void) {
     signal(SIGHUP, SIG_IGN); // Prevent terminal disconnects from stopping the daemon
 
     lcd_init();
+    // Can be improved later: read from a regular file to allow hot editing of schedules instead of baking them when compiling
+    setup_screens();
 
     while (1) {
         wake_up = 0;

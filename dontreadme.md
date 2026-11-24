@@ -127,3 +127,6 @@ snprintf format: "%-16.16s"
 .16: Max 16, yeets the rest away
 
 ---
+
+btw uh don't ask me why i named the c file main.c and the header file lcd.h
+it made sense to me at some point but i forgor
