@@ -7,3 +7,5 @@
  * Row 2: 2234567890123456
 **/
 display_string test_side_display(int *done);
+
+display_string list_characters(int *done);
