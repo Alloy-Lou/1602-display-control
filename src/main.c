@@ -93,7 +93,7 @@ void lcd_send(uint8_t val, uint8_t mode) {
 }
 
 void lcd_init(void) {
-    // explaination in dontreadme
+    // explanation in dontreadme
     uint8_t init_cmds[6] = {0x33, 0x32, 0x06, 0x0C, 0x28, 0x01};
     for (int i = 0; i < 6; i++) {
         lcd_send(init_cmds[i], MODE_CMD);
@@ -102,13 +102,39 @@ void lcd_init(void) {
 }
 
 void lcd_write_line(uint8_t row_cmd, const char *text) {
-    char buf[17];
+    /*char buf[17];
     snprintf(buf, sizeof(buf), "%-16.16s", text);
 
     lcd_send(row_cmd, MODE_CMD);
     for (int i = 0; i < 16; i++) {
         lcd_send((uint8_t)buf[i], MODE_CHAR);
+    }*/
+
+
+    lcd_send(row_cmd, MODE_CMD);
+
+    int text_byte_index = 0; // advances by 1 to 4 bytes per character
+    int written_chars = 0;
+    while (text[text_byte_index] != '\0' && written_chars < 16) {
+        uint32_t charp = utf_to_unicode(text, &text_byte_index);
+        lcd_send(unicode_to_rom(charp), MODE_CHAR);
+        written_chars++;
     }
+    while (written_chars < 16) {
+        lcd_send(' ', MODE_CHAR);
+        written_chars++;
+    }
+}
+
+void lcd_create_char(uint8_t slot, const custom_char c) {
+    // basically does - 0x08, explained in custom_chars.c
+    slot &= 0x07;
+    // explanation in dontreadme
+    lcd_send(0x40 | (slot << 3), MODE_CMD);
+    for (int i = 0; i < 8; i++) {
+        lcd_send(c.rows[i], MODE_CHAR);
+    }
+    lcd_send(LCD_LINE_1, MODE_CMD);
 }
 
 void handle_signal(int sig) {

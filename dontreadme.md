@@ -64,6 +64,8 @@ the bitwise operators! cause i'm not using that sh!t often in JS
 | : ""      OR (0 | 0 -> 0, otherwise 1)
 << : we movin sh!t (no need to explain that one right?)
 
+note that | can be used as a "bitwise addition" OwO
+
 so the snip-snipping works like that:
 
   1101 1001     P
@@ -88,6 +90,8 @@ for some fking reason the clock actually works the other way around: 1 first, an
 lcd_init codes used:
 
 https://en.wikipedia.org/wiki/HD44780_(integrated_circuit)#Mode_selection
+
+0x40 (00 01xx xxxx) -> Set CGRAM address (used for custom chars :>)
 
 0x33, 0x32 -> init/hardware handshake:
 
@@ -130,3 +134,63 @@ snprintf format: "%-16.16s"
 
 btw uh don't ask me why i named the c file main.c and the header file lcd.h
 it made sense to me at some point but i forgor
+
+---
+
+how uint32_t utf_to_unicode works
+basically, if lcd_update() is called with a string containing a special characters
+it smartly tries to check if it matches a custom characters to avoid sending
+broken characters (happened to me when using french accents like é in Février)
+lemme drop some useful info i found: https://stackoverflow.com/a/643810
+disclamer: used ai for this function as i couldn't figure it out (skill issue)
+also used ai to explain how it works, below:
+
+`utf_to_unicode()` reads **one complete UTF-8 character** from a C string starting at index `*idx`, converts its 1 to 4 bytes into a single Unicode ID number (called a **code point**, like `0x2103` for `℃`), and advances `*idx` to the first byte of the next character.
+
+In C, a normal `for (int i = 0; s[i] != '\0'; i++)` loop steps **one byte at a time**. That works for plain ASCII (where 1 character = 1 byte), but breaks on UTF-8 symbols like `"℃"` (3 bytes) or `"é"` (2 bytes)—treating a single visible symbol as multiple separate characters. `utf_to_unicode()` lets your loop step **one visible character at a time** instead.
+
+---
+
+### How UTF-8 Encodes Length in the First Byte
+
+UTF-8 is designed so the leading bits of the first byte (`b0`) tell you exactly how many bytes belong to that character, while every trailing byte starts with the bits `10xxxxxx`:
+
+| Byte Length | First Byte (`b0`) Pattern | Trailing Byte(s) Pattern | Payload Bits Extracted | `*idx` Advance |
+| --- | --- | --- | --- | --- |
+| **1 byte** (ASCII) | `0xxxxxxx` (`< 0x80`) | *(none)* | 7 bits (`b0`) | `+ 1` |
+| **2 bytes** (e.g., `é`, `°`) | `110xxxxx` (`(b0 & 0xE0) == 0xC0`) | `10xxxxxx` | 5 + 6 = **11 bits** | `+ 2` |
+| **3 bytes** (e.g., `℃`, `→`) | `1110xxxx` (`(b0 & 0xF0) == 0xE0`) | `10xxxxxx` `10xxxxxx` | 4 + 6 + 6 = **16 bits** | `+ 3` |
+| **4 bytes** (e.g., emojis) | `11110xxx` (`(b0 & 0xF8) == 0xF0`) | `10xxxxxx` × 3 | 3 + 6 + 6 + 6 = **21 bits** | `+ 4` |
+
+*(If the bytes don't match any valid pattern—for example, corrupted data—the fallback at the bottom skips 1 byte with `(*idx) += 1` and returns `'?'` so a `while` loop can never get stuck.)*
+
+---
+
+### Step-by-Step Walkthrough: Decoding `"℃"` (`U+2103`)
+
+In memory, the string `"℃"` is stored as three bytes: `0xE2`, `0x84`, `0x83` (`11100010` `10000100` `10000011`).
+
+1. **Detect the 3-byte header:**
+* `b0` is `0xE2` (`1110 0010`).
+* Masking off the bottom 4 bits with `b0 & 0xF0` gives `0xE0` (`1110 0000`), matching the 3-byte prefix `1110xxxx`.
+* Checking `(s[*idx + 1] & 0xC0) == 0x80` and `(s[*idx + 2] & 0xC0) == 0x80` confirms both following bytes start with `10xxxxxx` (and aren't `'\0'`).
+
+
+2. **Strip the UTF-8 wrapper bits to get the raw payload:**
+* Byte 0 (`0xE2 & 0x0F`): drops `1110`, keeping **`0010`** (`0x02`)
+* Byte 1 (`0x84 & 0x3F`): drops `10`, keeping **`000100`** (`0x04`)
+* Byte 2 (`0x83 & 0x3F`): drops `10`, keeping **`000011`** (`0x03`)
+
+
+3. **Stitch the payload bits back together with shifts (`<<`) and bitwise OR (`|`):**
+```c
+uint32_t unicode = ((uint32_t)(b0 & 0x0F) << 12) |       // 0x02 << 12 = 0x2000
+              ((uint32_t)(s[*idx + 1] & 0x3F) << 6) | // 0x04 << 6  = 0x0100
+              (uint8_t)(s[*idx + 2] & 0x3F);          //            = 0x0003
+// Result: 0x2000 | 0x0100 | 0x0003 = 0x2103 (U+2103, '℃')
+
+```
+
+
+4. **Advance the caller's index:**
+* `(*idx) += 3` moves the caller's position past all three bytes at once, and the function returns `0x2103` so `unicode_to_rom()` knows which single glyph to send to the LCD.
