@@ -1,5 +1,6 @@
 #include "lcd.h"
-#include "modules/modules.h"
+#include "custom_characters.h"
+#include "modules/_modules.h"
 
 /* Configure and customize here your displays! :p
 
@@ -24,6 +25,8 @@ void setup_screens(void) {
         cleanly with every minute boundary without cutting the last screen short at :59
         since it resets every minute.
     */
+    register_custom_char(DEGREE_CELCIUS);
+
     register_main_screen(main_display,   7);
     register_main_screen(sub_display_en, 3);
 

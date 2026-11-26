@@ -2,7 +2,7 @@ CC       := gcc
 TARGET   := lcd
 MOD_DIR  := modules
 CFLAGS   := -std=gnu23 -Wall -Wextra -Werror -O2 -pthread -Isrc -I$(MOD_DIR)
-MOD_HDR  := $(MOD_DIR)/modules.h
+MOD_HDR  := $(MOD_DIR)/_modules.h
 MOD_SRCS := $(wildcard $(MOD_DIR)/*.c)
 MOD_INCS := $(filter-out $(MOD_HDR), $(wildcard $(MOD_DIR)/*.h))
 SRCS     := $(wildcard *.c src/*.c) $(MOD_SRCS)

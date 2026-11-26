@@ -40,17 +40,6 @@ static int main_schedule_count = 0;
 static side_screen_slot *side_schedule = NULL;
 static int side_schedule_count = 0;
 
-const uint8_t degree_celcius[8] = {
-    0b11000, // ████░░░░░░
-    0b11000, // ████░░░░░░
-    0b00000, // ░░░░░░░░░░
-    0b00111, // ░░░░██████
-    0b01000, // ░░██░░░░░░
-    0b01000, // ░░██░░░░░░
-    0b01000, // ░░██░░░░░░
-    0b00111  // ░░░░██████
-};
-
 /* 
 ** Note: const char* const thing[] to make things truly const. 
 ** Only characters are const here, but strings slots are writable. 
@@ -235,7 +224,7 @@ display_string main_display(void) {
     snprintf(
         display.line2,
         sizeof(display.line2), 
-        "%4.1fC  %3d%% %3d%%",
+        "%4.1f℃  %3d%% %3d%%",
         get_cpu_temp(), 
         get_cpu_usage(), 
         get_ram_usage()
